@@ -1,0 +1,13 @@
+---
+- name: Informations système
+  hosts: all
+  gather_facts: true
+  tasks:
+    - name: Afficher les informations
+      debug:
+        msg:
+          - "🖥️ Hôte : {{ inventory_hostname }}"
+          - "📦 OS : {{ ansible_distribution }} {{ ansible_distribution_version }}"
+          - "💻 Architecture : {{ ansible_architecture }}"
+          - "🧠 CPU : {{ ansible_processor_cores }} cœurs"
+          - "💾 RAM : {{ ansible_memtotal_mb }} MB"
