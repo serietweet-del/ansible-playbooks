@@ -1,25 +1,42 @@
 ---
+# Exemple de structure attendue pour la variable linux_config :
+#
+# users:
+#   - name: monuser
+#     groups: "docker,sudo"
+#     append: true
+#     sudo_nopasswd: true
+#   - name: autreuser
+#     groups: "www-data"
+#     append: true
+#     sudo_nopasswd: false
+
 - name: Gestion des droits Linux (sudo, groupes)
   hosts: ubuntu
   become: true
   gather_facts: false
 
-  tasks:
-    - name: Ajouter l'utilisateur aux groupes spécifiés
-      ansible.builtin.user:
-        name: "{{ target_username }}"
-        groups: "{{ target_groups }}"
-        append: true
-      when: target_groups | length > 0
+  vars:
+    parsed_config: "{{ linux_config | from_yaml }}"
 
-    - name: Accorder sudo sans mot de passe si demandé
+  tasks:
+    - name: Ajouter les utilisateurs aux groupes spécifiés
+      ansible.builtin.user:
+        name: "{{ item.name }}"
+        groups: "{{ item.groups }}"
+        append: "{{ item.append | default(true) }}"
+      loop: "{{ parsed_config.users | default([]) }}"
+      when: item.groups is defined and item.groups | length > 0
+
+    - name: Accorder sudo aux utilisateurs demandés
       ansible.builtin.copy:
-        dest: "/etc/sudoers.d/{{ target_username }}-custom"
-        content: "{{ target_username }} ALL=(ALL) {{ 'NOPASSWD:' if sudo_nopasswd else '' }} ALL\n"
+        dest: "/etc/sudoers.d/{{ item.name }}-custom"
+        content: "{{ item.name }} ALL=(ALL) {{ 'NOPASSWD:' if item.sudo_nopasswd | default(false) else '' }} ALL\n"
         mode: '0440'
         validate: 'visudo -cf %s'
-      when: grant_sudo | bool
+      loop: "{{ parsed_config.users | default([]) }}"
+      when: item.grant_sudo | default(false) | bool
 
     - name: Confirmation
       ansible.builtin.debug:
-        msg: "Droits mis à jour pour '{{ target_username }}'."
+        msg: "Droits Linux mis à jour pour {{ parsed_config.users | map(attribute='name') | list }}."
