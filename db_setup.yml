@@ -1,66 +1,42 @@
 ---
-# Exemple de structure attendue pour la variable db_config (à coller dans le Survey) :
-#
-# galera_dbs:
-#   - name: madatabase
-#     state: present
-# galera_users:
-#   - name: monuser
-#     pass: MonMotDePasse123
-#     priv: "madatabase.*:ALL"
-#     host: '%'
-#     append_privs: false
-# tables:
-#   - db: madatabase
-#     sql: "CREATE TABLE IF NOT EXISTS clients (id INT AUTO_INCREMENT PRIMARY KEY, nom VARCHAR(100));"
-# inserts:
-#   - db: madatabase
-#     sql: "INSERT INTO clients (nom) VALUES ('Test');"
-
-- name: Gestion base de données MariaDB (bases, utilisateurs, droits, tables, insertion)
+- name: Gestion base de données MariaDB (création, table, droits, insertion)
   hosts: ubuntu
   become: true
   gather_facts: false
   collections:
     - community.mysql
 
-  vars:
-    parsed_config: "{{ db_config | from_yaml }}"
-
   tasks:
-    - name: Créer les bases de données
+    - name: Créer la base de données
       community.mysql.mysql_db:
-        name: "{{ item.name }}"
-        state: "{{ item.state | default('present') }}"
-        login_unix_socket: /run/mysqld/mysqld.sock
-      loop: "{{ parsed_config.galera_dbs | default([]) }}"
-
-    - name: Créer les utilisateurs et accorder les droits
-      community.mysql.mysql_user:
-        name: "{{ item.name }}"
-        password: "{{ item.pass }}"
-        priv: "{{ item.priv }}"
-        host: "{{ item.host | default('localhost') }}"
-        append_privs: "{{ item.append_privs | default(false) }}"
+        name: "{{ db_name }}"
         state: present
         login_unix_socket: /run/mysqld/mysqld.sock
-      loop: "{{ parsed_config.galera_users | default([]) }}"
+
+    - name: Créer l'utilisateur de la base et accorder les droits
+      community.mysql.mysql_user:
+        name: "{{ db_user }}"
+        password: "{{ db_password }}"
+        priv: "{{ db_name }}.*:{{ db_privileges }}"
+        host: "{{ db_user_host | default('localhost') }}"
+        state: present
+        login_unix_socket: /run/mysqld/mysqld.sock
       no_log: true
 
-    - name: Créer les tables demandées
+    - name: Créer la table si demandé
       community.mysql.mysql_query:
-        login_db: "{{ item.db }}"
+        login_db: "{{ db_name }}"
         login_unix_socket: /run/mysqld/mysqld.sock
-        query: "{{ item.sql }}"
-      loop: "{{ parsed_config.tables | default([]) }}"
+        query: "{{ create_table_sql }}"
+      when: create_table_sql | default('') | length > 0
 
-    - name: Insérer les données demandées
+    - name: Insérer des données si demandé
       community.mysql.mysql_query:
-        login_db: "{{ item.db }}"
+        login_db: "{{ db_name }}"
         login_unix_socket: /run/mysqld/mysqld.sock
-        query: "{{ item.sql }}"
-      loop: "{{ parsed_config.inserts | default([]) }}"
+        query: "{{ insert_data_sql }}"
+      when: insert_data_sql | default('') | length > 0
 
     - name: Confirmation
       ansible.builtin.debug:
-        msg: "Configuration de base de données appliquée avec succès."
+        msg: "Base '{{ db_name }}' configurée avec succès pour l'utilisateur '{{ db_user }}'."

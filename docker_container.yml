@@ -1,46 +1,25 @@
 ---
-# Exemple de structure attendue pour la variable docker_config :
-#
-# images:
-#   - name: nginx:latest
-#     source: pull
-# containers:
-#   - name: mon_nginx
-#     image: nginx:latest
-#     state: started
-#     ports:
-#       - "8080:80"
-#     env:
-#       ENV_VAR: valeur
-#     restart_policy: unless-stopped
-
-- name: Gestion images et conteneurs Docker
+- name: Gestion image et conteneur Docker
   hosts: ubuntu
   become: true
   gather_facts: false
   collections:
     - community.docker
 
-  vars:
-    parsed_config: "{{ docker_config | from_yaml }}"
-
   tasks:
-    - name: Télécharger/construire les images Docker
+    - name: Télécharger l'image Docker
       community.docker.docker_image:
-        name: "{{ item.name }}"
-        source: "{{ item.source | default('pull') }}"
-      loop: "{{ parsed_config.images | default([]) }}"
+        name: "{{ docker_image }}"
+        source: pull
 
-    - name: Lancer les conteneurs
+    - name: Lancer le conteneur
       community.docker.docker_container:
-        name: "{{ item.name }}"
-        image: "{{ item.image }}"
-        state: "{{ item.state | default('started') }}"
-        ports: "{{ item.ports | default([]) }}"
-        env: "{{ item.env | default({}) }}"
-        restart_policy: "{{ item.restart_policy | default('unless-stopped') }}"
-      loop: "{{ parsed_config.containers | default([]) }}"
+        name: "{{ container_name }}"
+        image: "{{ docker_image }}"
+        state: started
+        ports: "{{ container_ports | default([]) }}"
+        restart_policy: unless-stopped
 
     - name: Confirmation
       ansible.builtin.debug:
-        msg: "Conteneurs traités : {{ parsed_config.containers | map(attribute='name') | list }}."
+        msg: "Conteneur '{{ container_name }}' lancé avec l'image '{{ docker_image }}'."
