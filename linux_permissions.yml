@@ -1,0 +1,25 @@
+---
+- name: Gestion des droits Linux (sudo, groupes)
+  hosts: ubuntu
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Ajouter l'utilisateur aux groupes spécifiés
+      ansible.builtin.user:
+        name: "{{ target_username }}"
+        groups: "{{ target_groups }}"
+        append: true
+      when: target_groups | length > 0
+
+    - name: Accorder sudo sans mot de passe si demandé
+      ansible.builtin.copy:
+        dest: "/etc/sudoers.d/{{ target_username }}-custom"
+        content: "{{ target_username }} ALL=(ALL) {{ 'NOPASSWD:' if sudo_nopasswd else '' }} ALL\n"
+        mode: '0440'
+        validate: 'visudo -cf %s'
+      when: grant_sudo | bool
+
+    - name: Confirmation
+      ansible.builtin.debug:
+        msg: "Droits mis à jour pour '{{ target_username }}'."

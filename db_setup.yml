@@ -1,0 +1,42 @@
+---
+- name: Gestion base de données MariaDB (création, table, droits, insertion)
+  hosts: ubuntu
+  become: true
+  gather_facts: false
+  collections:
+    - community.mysql
+
+  tasks:
+    - name: Créer la base de données
+      community.mysql.mysql_db:
+        name: "{{ db_name }}"
+        state: present
+        login_unix_socket: /run/mysqld/mysqld.sock
+
+    - name: Créer l'utilisateur de la base et accorder les droits
+      community.mysql.mysql_user:
+        name: "{{ db_user }}"
+        password: "{{ db_password }}"
+        priv: "{{ db_name }}.*:{{ db_privileges }}"
+        host: "{{ db_user_host | default('localhost') }}"
+        state: present
+        login_unix_socket: /run/mysqld/mysqld.sock
+      no_log: true
+
+    - name: Créer la table si demandé
+      community.mysql.mysql_query:
+        login_db: "{{ db_name }}"
+        login_unix_socket: /run/mysqld/mysqld.sock
+        query: "{{ create_table_sql }}"
+      when: create_table_sql | length > 0
+
+    - name: Insérer des données si demandé
+      community.mysql.mysql_query:
+        login_db: "{{ db_name }}"
+        login_unix_socket: /run/mysqld/mysqld.sock
+        query: "{{ insert_data_sql }}"
+      when: insert_data_sql | length > 0
+
+    - name: Confirmation
+      ansible.builtin.debug:
+        msg: "Base '{{ db_name }}' configurée avec succès pour l'utilisateur '{{ db_user }}'."

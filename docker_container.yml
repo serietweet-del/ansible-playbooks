@@ -1,0 +1,27 @@
+---
+- name: Gestion image et conteneur Docker
+  hosts: ubuntu
+  become: true
+  gather_facts: false
+  collections:
+    - community.docker
+
+  tasks:
+    - name: Télécharger l'image Docker
+      community.docker.docker_image:
+        name: "{{ docker_image }}"
+        source: pull
+      when: docker_action == "pull"
+
+    - name: Lancer le conteneur
+      community.docker.docker_container:
+        name: "{{ container_name }}"
+        image: "{{ docker_image }}"
+        state: started
+        ports: "{{ container_ports | default([]) }}"
+        env: "{{ container_env | default({}) }}"
+        restart_policy: unless-stopped
+
+    - name: Confirmation
+      ansible.builtin.debug:
+        msg: "Conteneur '{{ container_name }}' lancé avec l'image '{{ docker_image }}'."
